@@ -13,20 +13,57 @@ type UploadInput = {
   mimeType: string;
 };
 
-function requireEnv(name: string) {
-  const value = process.env[name];
-  if (!value) throw new Error(`缺少对象存储配置：${name}`);
-  return value;
+function envValue(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function storageRegion() {
+  return envValue("S3_REGION", "TOS_REGION") || "cn-beijing";
+}
+
+function storageEndpoint() {
+  return (
+    envValue("S3_ENDPOINT", "TOS_ENDPOINT") ||
+    `https://tos-s3-${storageRegion()}.volces.com`
+  );
+}
+
+function storageBucket() {
+  const bucket = envValue("S3_BUCKET", "TOS_BUCKET", "TOS_BUCKET_NAME");
+  if (!bucket) throw new Error("缺少对象存储配置：S3_BUCKET 或 TOS_BUCKET");
+  return bucket;
+}
+
+function storageAccessKeyId() {
+  const key = envValue("S3_ACCESS_KEY_ID", "TOS_ACCESS_KEY_ID", "TOS_ACCESS_KEY");
+  if (!key) throw new Error("缺少对象存储配置：S3_ACCESS_KEY_ID 或 TOS_ACCESS_KEY_ID");
+  return key;
+}
+
+function storageSecretAccessKey() {
+  const key = envValue(
+    "S3_SECRET_ACCESS_KEY",
+    "TOS_SECRET_ACCESS_KEY",
+    "TOS_SECRET_KEY"
+  );
+  if (!key) {
+    throw new Error("缺少对象存储配置：S3_SECRET_ACCESS_KEY 或 TOS_SECRET_ACCESS_KEY");
+  }
+  return key;
 }
 
 function client() {
   return new S3Client({
-    region: process.env.S3_REGION || "cn-beijing",
-    endpoint: requireEnv("S3_ENDPOINT"),
+    region: storageRegion(),
+    endpoint: storageEndpoint(),
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
     credentials: {
-      accessKeyId: requireEnv("S3_ACCESS_KEY_ID"),
-      secretAccessKey: requireEnv("S3_SECRET_ACCESS_KEY")
+      accessKeyId: storageAccessKeyId(),
+      secretAccessKey: storageSecretAccessKey()
     }
   });
 }
@@ -39,7 +76,7 @@ function cleanFileName(fileName: string) {
 }
 
 export async function uploadAssetFile(input: UploadInput) {
-  const bucket = requireEnv("S3_BUCKET");
+  const bucket = storageBucket();
   const extension = path.extname(input.fileName);
   const safeName = cleanFileName(path.basename(input.fileName, extension));
   const storageKey = `seedance-assets/${new Date()

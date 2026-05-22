@@ -35,6 +35,29 @@
 
 把生成结果 URL 收藏为全局素材。
 
+## 对象存储配置
+
+上传素材依赖 S3/TOS 兼容对象存储。
+
+必填：
+
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+
+常用：
+
+- `S3_REGION`，默认 `cn-beijing`。
+- `S3_ENDPOINT` 可选；为空时会按 `https://tos-s3-${S3_REGION}.volces.com` 自动推导。
+
+别名：
+
+- `TOS_BUCKET`
+- `TOS_ACCESS_KEY_ID`
+- `TOS_SECRET_ACCESS_KEY`
+- `TOS_REGION`
+- `TOS_ENDPOINT`
+
 ## 项目
 
 `GET /api/projects?page=&pageSize=`
