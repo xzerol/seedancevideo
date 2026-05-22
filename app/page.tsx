@@ -655,10 +655,10 @@ function BailianVideoNode(props: NodeProps<Node<WorkflowNodeData>>) {
           onChange={(event) => data.onDataChange?.(props.id, { mode: event.target.value })}
         >
           <option value="text-to-video">文生视频</option>
-          <option value="image-to-video">图生视频</option>
-          <option value="reference-to-video">参考图</option>
-          <option value="first-last-frame">首尾帧</option>
-          <option value="video-edit">参考视频</option>
+          <option value="image-to-video">首帧图生视频</option>
+          <option value="reference-to-video">参考图生视频</option>
+          <option value="first-last-frame">首尾帧（Wan）</option>
+          <option value="video-edit">参考视频编辑</option>
         </select>
         <select
           value={data.ratio || "16:9"}

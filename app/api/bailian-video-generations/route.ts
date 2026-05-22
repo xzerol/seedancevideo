@@ -33,9 +33,15 @@ function summarizeBatchStatus(statuses: string[]) {
 function validateModeAssets(mode: string, assets: Awaited<ReturnType<typeof resolveAssets>>) {
   const imageCount = assets.filter((asset) => asset.kind === "image").length;
   const videoCount = assets.filter((asset) => asset.kind === "video").length;
-  if (mode === "image-to-video" && imageCount < 1) throw new Error("图生视频需要至少 1 张图片素材");
-  if (mode === "reference-to-video" && imageCount < 1) throw new Error("参考图生视频需要至少 1 张图片素材");
-  if (mode === "first-last-frame" && imageCount < 2) throw new Error("首尾帧需要至少 2 张图片素材");
+  if (mode === "image-to-video" && imageCount !== 1) {
+    throw new Error("HappyHorse 图生视频需要且只能选择 1 张首帧图片");
+  }
+  if (mode === "reference-to-video" && (imageCount < 1 || imageCount > 9)) {
+    throw new Error("HappyHorse 参考图生视频需要 1-9 张参考图");
+  }
+  if (mode === "first-last-frame" && imageCount !== 2) {
+    throw new Error("首尾帧生视频需要且只能选择 2 张图片素材");
+  }
   if (mode === "video-edit" && videoCount < 1) throw new Error("参考视频生成需要至少 1 个视频素材");
 }
 

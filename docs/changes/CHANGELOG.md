@@ -3,6 +3,7 @@
 ## 2026-05-22
 
 - 见：[2026-05-22-project-home-and-pagination.md](2026-05-22-project-home-and-pagination.md)
+- 见：[2026-05-22-happyhorse-capability-check.md](2026-05-22-happyhorse-capability-check.md)
 
 ## 2026-05-21
 

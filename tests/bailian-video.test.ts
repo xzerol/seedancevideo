@@ -68,6 +68,44 @@ describe("buildBailianVideoPayload", () => {
     });
   });
 
+  it("rejects first-last-frame without exactly two images", () => {
+    expect(() =>
+      buildBailianVideoPayload(
+        {
+          prompt: "镜头推进",
+          mode: "first-last-frame",
+          ratio: "智能",
+          resolution: "1080p",
+          duration: 6,
+          count: 1,
+          generateAudio: true,
+          watermark: false,
+          assetIds: ["image_1"]
+        },
+        [imageAsset]
+      )
+    ).toThrow("首尾帧生视频需要且只能选择 2 张图片素材");
+  });
+
+  it("requires exactly one first-frame image for HappyHorse I2V", () => {
+    expect(() =>
+      buildBailianVideoPayload(
+        {
+          prompt: "首帧动起来",
+          mode: "image-to-video",
+          ratio: "智能",
+          resolution: "720p",
+          duration: 5,
+          count: 1,
+          generateAudio: true,
+          watermark: false,
+          assetIds: ["image_1", "image_2"]
+        },
+        [imageAsset, { ...imageAsset, id: "image_2", publicUrl: "https://cdn.example.com/b.png" }]
+      )
+    ).toThrow("HappyHorse 图生视频需要且只能选择 1 张首帧图片");
+  });
+
   it("builds video edit payload", () => {
     const payload = buildBailianVideoPayload(
       {

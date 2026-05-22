@@ -63,6 +63,10 @@ function requireAsset<T>(items: T[], message: string) {
   return items[0];
 }
 
+function requireExactCount<T>(items: T[], count: number, message: string) {
+  if (items.length !== count) throw new Error(message);
+}
+
 export function buildBailianVideoPayload(
   input: CreateBailianVideoInput,
   assets: Asset[]
@@ -80,15 +84,19 @@ export function buildBailianVideoPayload(
   }
 
   if (input.mode === "image-to-video") {
+    requireExactCount(images, 1, "HappyHorse 图生视频需要且只能选择 1 张首帧图片");
     const firstFrame = requireAsset(images, "图生视频需要至少 1 张图片素材");
     media.push({ type: "first_frame", url: firstFrame.publicUrl });
     parameters.duration = input.duration;
   }
 
   if (input.mode === "reference-to-video") {
-    const references = images.slice(0, 5);
+    const references = images.slice(0, 9);
     if (references.length === 0) {
       throw new Error("参考图生视频需要至少 1 张图片素材");
+    }
+    if (images.length > 9) {
+      throw new Error("HappyHorse 参考图生视频最多支持 9 张参考图");
     }
     references.forEach((asset) => media.push({ type: "reference_image", url: asset.publicUrl }));
     parameters.ratio = normalizeRatio(input.ratio);
@@ -96,7 +104,7 @@ export function buildBailianVideoPayload(
   }
 
   if (input.mode === "first-last-frame") {
-    if (images.length < 2) throw new Error("首尾帧需要至少 2 张图片素材");
+    requireExactCount(images, 2, "首尾帧生视频需要且只能选择 2 张图片素材");
     media.push({ type: "first_frame", url: images[0].publicUrl });
     media.push({ type: "last_frame", url: images[1].publicUrl });
     parameters.duration = input.duration;
