@@ -1,0 +1,18 @@
+services:
+  seedance-video:
+    build: .
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "file:/data/seedance.db"
+      LOCAL_VIDEO_DIR: "/app/generated-videos"
+      LOCAL_VIDEO_PUBLIC_BASE_URL: "/api/local-files/videos"
+    volumes:
+      - seedance-data:/data
+      - ./generated-videos:/app/generated-videos
+    restart: unless-stopped
+
+volumes:
+  seedance-data:

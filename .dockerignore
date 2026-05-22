@@ -1,0 +1,13 @@
+.next
+node_modules
+coverage
+.env
+.env.local
+AccessKey.txt
+happykey.txt
+api.txt
+.playwright-mcp
+dev.db
+prisma/*.db
+generated-videos
+npm-debug.log*

@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  name        String
+  mimeType    String
+  kind        String
+  libraryType String   @default("asset")
+  source      String   @default("uploaded")
+  size        Int
+  storageKey  String
+  publicUrl   String
+  createdAt   DateTime @default(now())
+
+  batches GenerationBatchAsset[]
+  projectAssets ProjectAsset[]
+}
+
+model GenerationBatch {
+  id            String   @id @default(cuid())
+  projectId     String?
+  provider      String   @default("ark")
+  model         String?
+  nodeType      String   @default("seedance-video")
+  prompt        String
+  mode          String
+  ratio         String
+  resolution    String
+  duration      Int
+  count         Int
+  generateAudio Boolean  @default(true)
+  status        String   @default("queued")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assets GenerationBatchAsset[]
+  tasks  GenerationTask[]
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model GenerationBatchAsset {
+  batchId String
+  assetId String
+  role    String
+
+  batch GenerationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  asset Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([batchId, assetId])
+}
+
+model GenerationTask {
+  id             String   @id @default(cuid())
+  batchId        String
+  providerTaskId String?
+  status         String   @default("queued")
+  videoUrl       String?
+  errorMessage   String?
+  rawResponse    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  batch GenerationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  nodes   CanvasNode[]
+  edges   CanvasEdge[]
+  assets  ProjectAsset[]
+  batches GenerationBatch[]
+  jobs    GenerationJob[]
+  conversationSnapshots ConversationSnapshot[]
+}
+
+model CanvasNode {
+  id        String   @id @default(cuid())
+  projectId String
+  nodeId    String
+  type      String
+  positionX Float
+  positionY Float
+  width     Float?
+  height    Float?
+  dataJson  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, nodeId])
+}
+
+model CanvasEdge {
+  id           String   @id @default(cuid())
+  projectId    String
+  edgeId       String
+  sourceNodeId String
+  targetNodeId String
+  sourceHandle String?
+  targetHandle String?
+  dataJson     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, edgeId])
+}
+
+model ProjectAsset {
+  projectId String
+  assetId   String
+  role      String   @default("reference")
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  asset   Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, assetId])
+}
+
+model GenerationJob {
+  id             String   @id @default(cuid())
+  projectId      String?
+  nodeId         String?
+  type           String
+  prompt         String
+  status         String   @default("queued")
+  providerTaskId String?
+  resultUrl      String?
+  errorMessage   String?
+  rawResponse    String?
+  createdAssetId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model ConversationSnapshot {
+  id            String   @id @default(cuid())
+  projectId     String
+  nodeId        String
+  nodeType      String
+  prompt        String
+  inputAssetIds String
+  paramsJson    String
+  createdAt     DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, nodeId, createdAt])
+}
