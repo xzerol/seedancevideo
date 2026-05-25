@@ -41,6 +41,22 @@ describe("canvas input source helpers", () => {
     );
   });
 
+  it("detects @ mention queries in the middle or end of Chinese text", () => {
+    expect(mentionQueryAtCursor("参考@图", 4)).toEqual({
+      query: "图",
+      start: 2,
+      end: 4
+    });
+    expect(mentionQueryAtCursor("参考动作@", 5)).toEqual({
+      query: "",
+      start: 4,
+      end: 5
+    });
+    expect(insertMentionAtCursor("参考@图做视频", 4, "图片1").prompt).toBe(
+      "参考@图片1 做视频"
+    );
+  });
+
   it("places new nodes near selected nodes or viewport center", () => {
     expect(nextNodePosition({ x: 100, y: 200 }, { x: 10, y: 10 }, 1)).toEqual({
       x: 544,

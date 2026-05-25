@@ -38,11 +38,11 @@ export function ensurePromptMentions(prompt: string, assets: Pick<Asset, "name">
 
 export function mentionQueryAtCursor(prompt: string, cursor: number) {
   const beforeCursor = prompt.slice(0, cursor);
-  const match = beforeCursor.match(/(?:^|\s)@([\p{L}\p{N}_\-\u4e00-\u9fa5]*)$/u);
+  const match = beforeCursor.match(/@([\p{L}\p{N}_\-\u4e00-\u9fa5]*)$/u);
   if (!match || match.index === undefined) return null;
   return {
     query: match[1] ?? "",
-    start: match.index + match[0].indexOf("@"),
+    start: match.index,
     end: cursor
   };
 }

@@ -46,6 +46,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -281,6 +282,9 @@ function PromptEditor({
   placeholder: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const selectionRef = useRef<{ start: number; end: number; value: string } | null>(
+    null
+  );
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(
     null
   );
@@ -297,8 +301,25 @@ function PromptEditor({
     setMention(mentionQueryAtCursor(value, cursor));
   }
 
+  function rememberSelection(textarea: HTMLTextAreaElement) {
+    selectionRef.current = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+      value: textarea.value
+    };
+  }
+
+  useLayoutEffect(() => {
+    const selection = selectionRef.current;
+    const textarea = textareaRef.current;
+    if (!selection || !textarea || document.activeElement !== textarea) return;
+    if (textarea.value !== selection.value) return;
+    textarea.setSelectionRange(selection.start, selection.end);
+    selectionRef.current = null;
+  });
+
   function chooseAsset(asset: Asset) {
-    const current = data.prompt || "";
+    const current = textareaRef.current?.value ?? data.prompt ?? "";
     const cursor = textareaRef.current?.selectionStart ?? current.length;
     const inserted = insertMentionAtCursor(current, cursor, asset.name);
     data.onMentionAsset?.(nodeId, asset.id, inserted.prompt);
@@ -317,6 +338,7 @@ function PromptEditor({
         placeholder={placeholder}
         value={data.prompt || ""}
         onChange={(event) => {
+          rememberSelection(event.currentTarget);
           data.onPromptChange?.(nodeId, event.target.value);
           syncMention(event.target.value, event.target.selectionStart);
         }}
