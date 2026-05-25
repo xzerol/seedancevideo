@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSeedanceTask } from "@/lib/seedance";
 import { getBailianVideoTask } from "@/lib/bailian-video";
 import { ensureLocalVideoFile, isLocalVideoUrl } from "@/lib/local-video";
+import { assetsForClient } from "@/lib/storage";
 import { saveCanvasSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -132,6 +133,10 @@ export async function GET(
     (job) => job.type !== "seedance-video" && job.type !== "bailian-video"
   );
 
+  const clientAssets = await assetsForClient(
+    project.assets.map((projectAsset) => projectAsset.asset)
+  );
+
   return NextResponse.json({
     project: {
       id: project.id,
@@ -152,7 +157,7 @@ export async function GET(
         targetHandle: edge.targetHandle,
         data: parseJson(edge.dataJson)
       })),
-      assets: project.assets.map((projectAsset) => projectAsset.asset),
+      assets: clientAssets,
       jobs: [...videoJobs, ...nonVideoJobs]
     }
   });

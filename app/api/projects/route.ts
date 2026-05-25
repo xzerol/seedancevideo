@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { assetsForClient } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -43,8 +44,8 @@ function defaultNodes() {
 
 type ProjectWithSummaryData = Awaited<ReturnType<typeof loadProjects>>[number];
 
-function firstProjectThumbnail(project: ProjectWithSummaryData) {
-  const assets = project.assets.map((item) => item.asset);
+async function firstProjectThumbnail(project: ProjectWithSummaryData) {
+  const assets = await assetsForClient(project.assets.map((item) => item.asset));
   const image = assets.find((asset) => asset.kind === "image");
   if (image) return { thumbnailUrl: image.publicUrl, thumbnailKind: "image" };
 
@@ -72,8 +73,8 @@ function firstProjectThumbnail(project: ProjectWithSummaryData) {
   return { thumbnailUrl: null, thumbnailKind: null };
 }
 
-function projectSummary(project: ProjectWithSummaryData) {
-  const thumbnail = firstProjectThumbnail(project);
+async function projectSummary(project: ProjectWithSummaryData) {
+  const thumbnail = await firstProjectThumbnail(project);
   return {
     id: project.id,
     name: project.name,
@@ -168,7 +169,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    projects: projects.map(projectSummary),
+    projects: await Promise.all(projects.map(projectSummary)),
     page,
     pageSize,
     total,
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
   const projectWithSummary = await loadProject(project.id);
 
   return NextResponse.json({
-    project: projectSummary(
+    project: await projectSummary(
       projectWithSummary || ({ ...project, assets: [], jobs: [], batches: [] } as ProjectWithSummaryData)
     )
   });

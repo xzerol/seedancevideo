@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { saveRemoteAssetFile } from "@/lib/local-asset";
+import { ensureSupportedAsset, kindFromMime } from "@/lib/validation";
 
 export const runtime = "nodejs";
+
+function fileNameFromUrl(url: string, fallbackName: string, mimeType: string) {
+  const cleanName = fallbackName.trim();
+  if (cleanName.includes(".")) return cleanName;
+  try {
+    const parsed = new URL(url, "http://local");
+    const candidate = parsed.pathname.split("/").pop();
+    if (candidate?.includes(".")) return candidate;
+  } catch {
+    // Keep the caller-provided fallback below.
+  }
+  if (mimeType === "image/png") return `${cleanName || "generated-image"}.png`;
+  if (mimeType === "image/jpeg") return `${cleanName || "generated-image"}.jpg`;
+  if (mimeType === "video/mp4") return `${cleanName || "generated-video"}.mp4`;
+  return cleanName || "generated-asset";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,16 +29,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少可收藏的结果 URL" }, { status: 400 });
     }
 
+    const mimeType = String(body.mimeType || "image/png");
+    ensureSupportedAsset(mimeType);
+    const fileName = fileNameFromUrl(url, String(body.name || ""), mimeType);
+    const saved = await saveRemoteAssetFile(
+      url,
+      fileName,
+      mimeType,
+      request.nextUrl.origin
+    );
+
     const asset = await prisma.asset.create({
       data: {
         name: String(body.name || "生成图片"),
-        mimeType: String(body.mimeType || "image/png"),
-        kind: String(body.kind || "image"),
+        mimeType,
+        kind: String(body.kind || kindFromMime(mimeType)),
         libraryType: String(body.libraryType || "asset"),
         source: "generated",
-        size: 0,
-        storageKey: String(body.storageKey || `generated:${url}`),
-        publicUrl: url,
+        size: saved.size,
+        storageKey: saved.storageKey,
+        publicUrl: saved.publicUrl,
         projectAssets:
           body.projectId && String(body.libraryType || "asset") !== "person"
             ? {

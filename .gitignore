@@ -13,5 +13,7 @@ dev.db-journal
 prisma/*.db
 prisma/*.db-journal
 uploads
+uploaded-assets
 generated-videos
 npm-debug.log*
+*.tsbuildinfo

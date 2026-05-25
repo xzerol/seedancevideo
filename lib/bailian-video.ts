@@ -1,5 +1,6 @@
 import type { Asset } from "@prisma/client";
 import { saveRemoteVideoFile } from "./local-video";
+import { prepareAssetsForProvider } from "./storage";
 import type { CreateBailianVideoInput } from "./validation";
 
 export type BailianVideoTask = {
@@ -168,7 +169,8 @@ export async function createBailianVideoTask(
   input: CreateBailianVideoInput,
   assets: Asset[]
 ) {
-  const payload = buildBailianVideoPayload(input, assets);
+  const providerAssets = await prepareAssetsForProvider(assets);
+  const payload = buildBailianVideoPayload(input, providerAssets);
   const raw = await dashscopeFetch("/services/aigc/video-generation/video-synthesis", {
     method: "POST",
     headers: { "X-DashScope-Async": "enable" },

@@ -7,10 +7,13 @@ services:
       - .env
     environment:
       DATABASE_URL: "file:/data/seedance.db"
+      LOCAL_ASSET_DIR: "/app/uploaded-assets"
+      LOCAL_ASSET_PUBLIC_BASE_URL: "/api/local-files/assets"
       LOCAL_VIDEO_DIR: "/app/generated-videos"
       LOCAL_VIDEO_PUBLIC_BASE_URL: "/api/local-files/videos"
     volumes:
       - seedance-data:/data
+      - ./uploaded-assets:/app/uploaded-assets
       - ./generated-videos:/app/generated-videos
     restart: unless-stopped
 

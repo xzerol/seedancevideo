@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { uploadAssetFile } from "@/lib/storage";
+import { saveAssetFile } from "@/lib/local-asset";
+import { assetsForClient } from "@/lib/storage";
 import { ensureSupportedAsset, kindFromMime } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -52,14 +53,14 @@ export async function GET(request: NextRequest) {
     ]) {
       byId.set(asset.id, asset);
     }
-    return NextResponse.json({ assets: [...byId.values()] });
+    return NextResponse.json({ assets: await assetsForClient([...byId.values()]) });
   }
 
   const assets = await prisma.asset.findMany({
     orderBy: { createdAt: "desc" },
     take: 200
   });
-  return NextResponse.json({ assets });
+  return NextResponse.json({ assets: await assetsForClient(assets) });
 }
 
 export async function POST(request: NextRequest) {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadAssetFile({
+    const saved = await saveAssetFile({
       buffer,
       fileName: file.name,
       mimeType: file.type
@@ -98,8 +99,8 @@ export async function POST(request: NextRequest) {
         libraryType: normalizedLibraryType,
         source: "uploaded",
         size: file.size,
-        storageKey: uploaded.storageKey,
-        publicUrl: uploaded.publicUrl,
+        storageKey: saved.storageKey,
+        publicUrl: saved.publicUrl,
         projectAssets:
           normalizedLibraryType === "asset" && projectId
             ? { create: { projectId, role: "library" } }

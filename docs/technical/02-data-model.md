@@ -23,8 +23,8 @@
 - `kind`
 - `libraryType`
 - `source`
-- `storageKey`
-- `publicUrl`
+- `storageKey`：本地素材 Key，通常为 `local-asset:...`。
+- `publicUrl`：本地预览地址，通常为 `/api/local-files/assets/...`。上游模型调用所需的对象存储 URL 会在运行时临时生成，不作为长期素材地址保存。
 
 ## CanvasNode
 

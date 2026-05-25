@@ -1760,6 +1760,10 @@ function WorkflowCanvas() {
           data.resultKind === "video" || data.resultUrl.includes(".mp4")
             ? "video"
             : "image",
+        mimeType:
+          data.resultKind === "video" || data.resultUrl.includes(".mp4")
+            ? "video/mp4"
+            : "image/png",
         libraryType: "asset",
         projectId: projectIdRef.current
       })

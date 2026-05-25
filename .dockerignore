@@ -10,4 +10,6 @@ api.txt
 dev.db
 prisma/*.db
 generated-videos
+uploaded-assets
 npm-debug.log*
+*.tsbuildinfo

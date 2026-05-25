@@ -38,14 +38,22 @@
 
 - 项目和画布元数据。
 - 素材元数据。
-- TOS 文件 URL/Key。
+- 本地素材 URL/Key。
 - 生成任务状态和结果 URL。
 
-TOS 保存：
+本地素材文件夹保存：
 
-- 用户上传的图片、视频、音频素材。
+- 用户上传的图片、视频、音频素材会保存到 `uploaded-assets/`。
+- Docker 内部路径为 `/app/uploaded-assets`。
+- 页面通过 `/api/local-files/assets/...` 预览本地素材。
 
-本地文件夹保存：
+TOS/S3 临时保存：
+
+- 创建 Seedance、Seedream 或百炼任务时，把本地素材临时上传到对象存储。
+- 调用上游模型时使用公开 URL 或临时签名 URL。
+- 数据库不依赖这些对象存储 URL 作为长期素材地址。
+
+本地视频文件夹保存：
 
 - 完成的视频生成结果会下载到 `generated-videos/`。
 - Docker 内部路径为 `/app/generated-videos`。
@@ -61,4 +69,4 @@ TOS 保存：
 
 `docker-compose.yml` 使用 `seedance-data` volume 持久化 SQLite 数据库。
 
-`docker-compose.yml` 同时把宿主机 `./generated-videos` 挂载到容器 `/app/generated-videos`，用于保存生成视频文件。
+`docker-compose.yml` 同时把宿主机 `./uploaded-assets` 挂载到容器 `/app/uploaded-assets`，用于保存上传和收藏素材；把宿主机 `./generated-videos` 挂载到容器 `/app/generated-videos`，用于保存生成视频文件。

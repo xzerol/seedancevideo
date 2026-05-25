@@ -1,4 +1,5 @@
 import type { Asset } from "@prisma/client";
+import { prepareAssetsForProvider } from "./storage";
 import type { CreateImageGenerationInput } from "./validation";
 
 export type SeedreamResult = {
@@ -65,7 +66,8 @@ export async function createSeedreamImages(
   input: CreateImageGenerationInput,
   assets: Asset[]
 ): Promise<SeedreamResult> {
-  const payload = buildSeedreamPayload(input, assets);
+  const providerAssets = await prepareAssetsForProvider(assets);
+  const payload = buildSeedreamPayload(input, providerAssets);
   const response = await fetch(`${arkBaseUrl()}/images/generations`, {
     method: "POST",
     headers: {

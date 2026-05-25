@@ -1,5 +1,6 @@
 import type { Asset } from "@prisma/client";
 import { saveRemoteVideoFile } from "./local-video";
+import { prepareAssetsForProvider } from "./storage";
 import type { CreateGenerationInput } from "./validation";
 
 export type ProviderTask = {
@@ -165,7 +166,8 @@ export async function createSeedanceTask(
   input: CreateGenerationInput,
   assets: Asset[]
 ) {
-  const payload = buildSeedancePayload(input, assets);
+  const providerAssets = await prepareAssetsForProvider(assets);
+  const payload = buildSeedancePayload(input, providerAssets);
   const raw = await arkFetch("/contents/generations/tasks", {
     method: "POST",
     body: JSON.stringify(payload)
