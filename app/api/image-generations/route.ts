@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseAssetMentions } from "@/lib/prompt";
 import { createSeedreamImages } from "@/lib/seedream";
 import { createImageGenerationSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
+async function resolveAssets(assetIds: string[], prompt: string) {
+  const mentionedNames = parseAssetMentions(prompt);
+  const conditions = [];
+  if (assetIds.length > 0) conditions.push({ id: { in: assetIds } });
+  if (mentionedNames.length > 0) conditions.push({ name: { in: mentionedNames } });
+  if (conditions.length === 0) return [];
+
+  return prisma.asset.findMany({
+    where: { OR: conditions },
+    orderBy: { createdAt: "asc" }
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const input = createImageGenerationSchema.parse(await request.json());
-    const assets = input.assetIds.length
-      ? await prisma.asset.findMany({ where: { id: { in: input.assetIds } } })
-      : [];
+    const assets = await resolveAssets(input.assetIds, input.prompt);
 
     const job = await prisma.generationJob.create({
       data: {

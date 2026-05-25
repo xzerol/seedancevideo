@@ -103,8 +103,8 @@
 - `nodeId`
 - `prompt`
 - `assetIds`
-- `ratio`
-- `size`
+- `ratio`：前端选择的比例，服务端会在创建 Seedream 请求时转换成对应的宽高像素值。
+- `size`：前端选择的 2K / 3K 档位，会与 `ratio` 一起转换成 Seedream 的 `size` 参数。
 - `count`
 - `optimizePrompt`
 - `watermark`

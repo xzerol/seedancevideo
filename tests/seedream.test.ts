@@ -29,9 +29,45 @@ describe("buildSeedreamPayload", () => {
       [imageAsset]
     );
 
-    expect(payload.ratio).toBe("adaptive");
     expect(payload.size).toBe("3K");
     expect(payload.n).toBe(2);
-    expect(payload.image_urls).toEqual(["https://cdn.example.com/a.png"]);
+    expect(payload.image).toEqual(["https://cdn.example.com/a.png"]);
+    expect(payload).not.toHaveProperty("image_urls");
+    expect(payload).not.toHaveProperty("ratio");
+  });
+
+  it("maps explicit aspect ratio and resolution to Seedream size", () => {
+    const payload = buildSeedreamPayload(
+      {
+        prompt: "生成一张电影感横版海报",
+        assetIds: [],
+        ratio: "16:9",
+        size: "2K",
+        count: 1,
+        optimizePrompt: true,
+        watermark: false
+      },
+      []
+    );
+
+    expect(payload.size).toBe("2848x1600");
+    expect(payload).not.toHaveProperty("ratio");
+  });
+
+  it("omits reference image field when no image assets are selected", () => {
+    const payload = buildSeedreamPayload(
+      {
+        prompt: "生成一张电影感人像",
+        assetIds: [],
+        ratio: "智能",
+        size: "3K",
+        count: 1,
+        optimizePrompt: true,
+        watermark: false
+      },
+      []
+    );
+
+    expect(payload).not.toHaveProperty("image");
   });
 });

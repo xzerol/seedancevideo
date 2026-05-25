@@ -21,8 +21,32 @@ function arkApiKey() {
   return key;
 }
 
-function normalizeRatio(ratio: string) {
-  return ratio === "智能" ? "adaptive" : ratio;
+const SEEDREAM_SIZE_BY_RATIO = {
+  "2K": {
+    "1:1": "2048x2048",
+    "4:3": "2304x1728",
+    "3:4": "1728x2304",
+    "16:9": "2848x1600",
+    "9:16": "1600x2848",
+    "21:9": "3136x1344"
+  },
+  "3K": {
+    "1:1": "3072x3072",
+    "4:3": "3456x2592",
+    "3:4": "2592x3456",
+    "16:9": "4096x2304",
+    "9:16": "2304x4096",
+    "21:9": "4704x2016"
+  }
+} as const;
+
+function seedreamSize(ratio: string, size: "2K" | "3K") {
+  if (ratio === "智能") return size;
+  return (
+    SEEDREAM_SIZE_BY_RATIO[size][
+      ratio as keyof (typeof SEEDREAM_SIZE_BY_RATIO)[typeof size]
+    ] || size
+  );
 }
 
 export function buildSeedreamPayload(
@@ -30,16 +54,16 @@ export function buildSeedreamPayload(
   assets: Asset[]
 ) {
   const imageAssets = assets.filter((asset) => asset.kind === "image");
+  const imageUrls = imageAssets.map((asset) => asset.publicUrl);
   return {
     model: process.env.SEEDREAM_MODEL || "doubao-seedream-5-0-260128",
     prompt: input.prompt,
     response_format: "url",
-    size: input.size,
-    ratio: normalizeRatio(input.ratio),
+    size: seedreamSize(input.ratio, input.size),
     n: input.count,
     watermark: input.watermark,
     optimize_prompt: input.optimizePrompt,
-    image_urls: imageAssets.map((asset) => asset.publicUrl)
+    ...(imageUrls.length > 0 ? { image: imageUrls } : {})
   };
 }
 
