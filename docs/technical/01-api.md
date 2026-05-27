@@ -23,6 +23,8 @@
 - `file`：图片、视频或音频文件。
 - `libraryType`：`asset` 或 `person`。
 
+画布支持直接拖拽本地文件上传；拖入时复用该接口，普通文件按 `libraryType=asset` 保存到当前项目素材库。
+
 `PATCH /api/assets/:assetId`
 
 修改素材名称或资源类型。
@@ -108,6 +110,13 @@
 - `count`
 - `optimizePrompt`
 - `watermark`
+
+返回：
+
+- `imageUrls`：本地 `/api/local-files/assets/...` 图片地址。
+- `assets`：本次生成自动创建的本地素材记录。
+
+服务端会把 Seedream 返回的远程图片立即下载到本地素材文件夹，创建当前项目素材记录，再把本地地址写入生成任务结果。
 
 ## 视频生成
 

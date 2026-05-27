@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Asset } from "@prisma/client";
+import { saveGeneratedImageAssets } from "@/lib/generated-image-assets";
 import { prisma } from "@/lib/prisma";
 import { parseAssetMentions } from "@/lib/prompt";
 import { createSeedreamImages } from "@/lib/seedream";
@@ -35,19 +37,43 @@ export async function POST(request: NextRequest) {
     });
 
     const result = await createSeedreamImages(input, assets);
+    let generatedAssets: Asset[] = [];
+    if (result.status === "completed") {
+      try {
+        generatedAssets = await saveGeneratedImageAssets({
+          imageUrls: result.imageUrls,
+          projectId: input.projectId,
+          baseUrl: request.nextUrl.origin
+        });
+      } catch (saveError) {
+        await prisma.generationJob.update({
+          where: { id: job.id },
+          data: {
+            status: "failed",
+            errorMessage:
+              saveError instanceof Error ? saveError.message : "生成图片本地保存失败",
+            rawResponse: JSON.stringify(result.raw)
+          }
+        });
+        throw saveError;
+      }
+    }
+    const localImageUrls = generatedAssets.map((asset) => asset.publicUrl);
     const updatedJob = await prisma.generationJob.update({
       where: { id: job.id },
       data: {
         status: result.status,
-        resultUrl: result.imageUrls[0] ?? null,
+        resultUrl: localImageUrls[0] ?? result.imageUrls[0] ?? null,
         errorMessage: result.errorMessage,
+        createdAssetId: generatedAssets[0]?.id ?? null,
         rawResponse: JSON.stringify(result.raw)
       }
     });
 
     return NextResponse.json({
       job: updatedJob,
-      imageUrls: result.imageUrls
+      imageUrls: localImageUrls.length > 0 ? localImageUrls : result.imageUrls,
+      assets: generatedAssets
     });
   } catch (error) {
     return NextResponse.json(

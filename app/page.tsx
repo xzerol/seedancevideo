@@ -1375,7 +1375,7 @@ function WorkflowCanvas() {
         if (!response.ok) throw new Error(data.error || "上传失败");
         uploaded.push(data.asset);
       }
-      setAssets((current) => [...uploaded, ...current]);
+      prependAssets(uploaded);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "上传失败");
     } finally {
@@ -1416,20 +1416,65 @@ function WorkflowCanvas() {
   }
 
   function addAssetNode(asset: Asset, position?: { x: number; y: number }) {
-    const id = `${asset.libraryType}-${asset.id}-${Date.now()}`;
+    addAssetNodes([asset], position);
+  }
+
+  function addAssetNodes(assetsToAdd: Asset[], position?: { x: number; y: number }) {
+    if (assetsToAdd.length === 0) return;
     setNodes((current) => {
       const nextPosition = position || positionForNewNode(current, current.length % 4);
+      const selectedIndex = assetsToAdd.length - 1;
       return hydrateNodes([
         ...current.map((node) => ({ ...node, selected: false })),
-        {
-          id,
+        ...assetsToAdd.map((asset, index) => ({
+          id: `${asset.libraryType}-${asset.id}-${Date.now()}-${index}`,
           type: asset.libraryType === "person" ? "person" : "asset",
-          position: nextPosition,
-          selected: true,
+          position: {
+            x: nextPosition.x + index * 24,
+            y: nextPosition.y + index * 18
+          },
+          selected: index === selectedIndex,
           data: { title: asset.name, assetId: asset.id, asset }
-        }
+        }))
       ]);
     });
+  }
+
+  function prependAssets(nextAssets: Asset[]) {
+    if (nextAssets.length === 0) return;
+    setAssets((current) => {
+      const nextIds = new Set(nextAssets.map((asset) => asset.id));
+      return [...nextAssets, ...current.filter((asset) => !nextIds.has(asset.id))];
+    });
+  }
+
+  async function uploadDroppedFiles(files: File[], position: { x: number; y: number }) {
+    setUploading(true);
+    setError("");
+    const uploaded: Asset[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("libraryType", "asset");
+        if (projectIdRef.current) formData.append("projectId", projectIdRef.current);
+        const response = await fetch("/api/assets", { method: "POST", body: formData });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `${file.name} 上传失败`);
+        uploaded.push(data.asset);
+      } catch (uploadError) {
+        errors.push(
+          uploadError instanceof Error ? uploadError.message : `${file.name} 上传失败`
+        );
+      }
+    }
+
+    prependAssets(uploaded);
+    addAssetNodes(uploaded, position);
+    if (errors.length > 0) setError(errors[0]);
+    setUploading(false);
   }
 
   function onDragStart(event: DragEvent, asset: Asset) {
@@ -1437,16 +1482,24 @@ function WorkflowCanvas() {
     event.dataTransfer.effectAllowed = "move";
   }
 
-  function onDrop(event: DragEvent) {
+  async function onDrop(event: DragEvent) {
     event.preventDefault();
-    const assetId = event.dataTransfer.getData("application/seedance-asset");
-    const asset = assetMap.get(assetId);
-    if (!asset || !flow) return;
+    if (!flow) return;
     const position = flow.screenToFlowPosition({
       x: event.clientX,
       y: event.clientY
     });
-    addAssetNode(asset, position);
+    const assetId = event.dataTransfer.getData("application/seedance-asset");
+    if (assetId) {
+      const asset = assetMap.get(assetId);
+      if (asset) addAssetNode(asset, position);
+      return;
+    }
+
+    const droppedFiles = Array.from(event.dataTransfer.files || []);
+    if (droppedFiles.length > 0) {
+      await uploadDroppedFiles(droppedFiles, position);
+    }
   }
 
   function addGenerator(type: "seedream-image" | "seedance-video" | "bailian-video") {
@@ -1552,8 +1605,11 @@ function WorkflowCanvas() {
       updateNodeData(nodeId, { status: "failed", errorMessage: data.error });
       return;
     }
+    const generatedAssets = (data.assets || []) as Asset[];
+    prependAssets(generatedAssets);
     updateNodeData(nodeId, { status: "completed" });
     for (const [index, url] of (data.imageUrls || []).entries()) {
+      const generatedAsset = generatedAssets[index];
       const resultId = `result-image-${Date.now()}-${index}`;
       setNodes((current) =>
         hydrateNodes([
@@ -1566,8 +1622,10 @@ function WorkflowCanvas() {
               y: (node.position?.y || 0) + index * 250
             },
             data: {
-              title: `图片结果 ${index + 1}`,
-              resultUrl: url,
+              title: generatedAsset?.name || `图片结果 ${index + 1}`,
+              resultUrl: generatedAsset?.publicUrl || url,
+              assetId: generatedAsset?.id,
+              asset: generatedAsset,
               resultKind: "image" as const,
               status: "completed"
             }
@@ -1772,6 +1830,11 @@ function WorkflowCanvas() {
 
   async function collectGeneratedAsset(data: WorkflowNodeData) {
     if (!data.resultUrl) return;
+    if (data.assetId) {
+      const existingAsset = assetMapRef.current.get(data.assetId);
+      if (existingAsset) prependAssets([existingAsset]);
+      return;
+    }
     const response = await fetch("/api/assets/from-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1791,7 +1854,7 @@ function WorkflowCanvas() {
       })
     });
     const payload = await response.json();
-    if (response.ok) setAssets((current) => [payload.asset, ...current]);
+    if (response.ok) prependAssets([payload.asset]);
   }
 
   if (projectView === "home") {
