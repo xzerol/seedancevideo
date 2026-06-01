@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseAssetMentions } from "@/lib/prompt";
-import { createBailianVideoTask } from "@/lib/bailian-video";
-import { createBailianVideoSchema } from "@/lib/validation";
+import {
+  bailianModelFamilyForInput,
+  createBailianVideoTask,
+  modelForInput,
+  validateBailianModelMode
+} from "@/lib/bailian-video";
+import {
+  createBailianVideoSchema,
+  type CreateBailianVideoInput
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -15,14 +23,6 @@ async function resolveAssets(assetIds: string[], prompt: string) {
   return prisma.asset.findMany({ where: { OR: conditions }, orderBy: { createdAt: "asc" } });
 }
 
-function modelForMode(mode: string) {
-  if (mode === "text-to-video") return process.env.HAPPYHORSE_T2V_MODEL || "happyhorse-1.0-t2v";
-  if (mode === "image-to-video") return process.env.HAPPYHORSE_I2V_MODEL || "happyhorse-1.0-i2v";
-  if (mode === "reference-to-video") return process.env.HAPPYHORSE_R2V_MODEL || "happyhorse-1.0-r2v";
-  if (mode === "first-last-frame") return process.env.WAN_I2V_MODEL || "wan2.7-i2v";
-  return process.env.HAPPYHORSE_VIDEO_EDIT_MODEL || "happyhorse-1.0-video-edit";
-}
-
 function summarizeBatchStatus(statuses: string[]) {
   if (statuses.some((status) => status === "queued" || status === "running")) return "running";
   if (statuses.length > 0 && statuses.every((status) => status === "completed")) return "completed";
@@ -30,32 +30,47 @@ function summarizeBatchStatus(statuses: string[]) {
   return "failed";
 }
 
-function validateModeAssets(mode: string, assets: Awaited<ReturnType<typeof resolveAssets>>) {
+function validateModeAssets(
+  input: CreateBailianVideoInput,
+  assets: Awaited<ReturnType<typeof resolveAssets>>
+) {
+  const modelFamily = bailianModelFamilyForInput(input);
   const imageCount = assets.filter((asset) => asset.kind === "image").length;
   const videoCount = assets.filter((asset) => asset.kind === "video").length;
-  if (mode === "image-to-video" && imageCount !== 1) {
-    throw new Error("HappyHorse 图生视频需要且只能选择 1 张首帧图片");
+  if (input.mode === "image-to-video" && imageCount !== 1) {
+    throw new Error("图生视频需要且只能选择 1 张首帧图片");
   }
-  if (mode === "reference-to-video" && (imageCount < 1 || imageCount > 9)) {
-    throw new Error("HappyHorse 参考图生视频需要 1-9 张参考图");
+  if (input.mode === "reference-to-video") {
+    const referenceCount = modelFamily === "wan" ? imageCount + videoCount : imageCount;
+    const limit = modelFamily === "wan" ? 5 : 9;
+    if (referenceCount < 1 || referenceCount > limit) {
+      throw new Error(
+        modelFamily === "wan"
+          ? "Wan 参考生视频需要 1-5 个参考图片或视频素材"
+          : "HappyHorse 参考图生视频需要 1-9 张参考图"
+      );
+    }
   }
-  if (mode === "first-last-frame" && imageCount !== 2) {
+  if (input.mode === "first-last-frame" && imageCount !== 2) {
     throw new Error("首尾帧生视频需要且只能选择 2 张图片素材");
   }
-  if (mode === "video-edit" && videoCount < 1) throw new Error("参考视频生成需要至少 1 个视频素材");
+  if (input.mode === "video-edit" && videoCount < 1) {
+    throw new Error("参考视频生成需要至少 1 个视频素材");
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const input = createBailianVideoSchema.parse(await request.json());
+    validateBailianModelMode(input);
     const assets = await resolveAssets(input.assetIds, input.prompt);
-    validateModeAssets(input.mode, assets);
+    validateModeAssets(input, assets);
 
     const batch = await prisma.generationBatch.create({
       data: {
         projectId: input.projectId,
         provider: "dashscope",
-        model: modelForMode(input.mode),
+        model: modelForInput(input),
         nodeType: "bailian-video",
         prompt: input.prompt,
         mode: input.mode,

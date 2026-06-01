@@ -31,16 +31,38 @@ function normalizeResolution(resolution: string) {
   return resolution.toUpperCase();
 }
 
-function modelForMode(mode: CreateBailianVideoInput["mode"]) {
+export function bailianModelFamilyForInput(input: CreateBailianVideoInput) {
+  return input.modelFamily || (input.mode === "first-last-frame" ? "wan" : "happyhorse");
+}
+
+export function validateBailianModelMode(input: CreateBailianVideoInput) {
+  const modelFamily = bailianModelFamilyForInput(input);
+  if (modelFamily === "happyhorse" && input.mode === "first-last-frame") {
+    throw new Error("HappyHorse 不支持首尾帧模式，请选择 Wan");
+  }
+}
+
+export function modelForInput(input: CreateBailianVideoInput) {
+  validateBailianModelMode(input);
+  if (bailianModelFamilyForInput(input) === "wan") {
+    const models = {
+      "text-to-video": process.env.WAN_T2V_MODEL || "wan2.7-t2v-2026-04-25",
+      "image-to-video": process.env.WAN_I2V_MODEL || "wan2.7-i2v-2026-04-25",
+      "first-last-frame": process.env.WAN_I2V_MODEL || "wan2.7-i2v-2026-04-25",
+      "reference-to-video": process.env.WAN_R2V_MODEL || "wan2.7-r2v",
+      "video-edit": process.env.WAN_VIDEO_EDIT_MODEL || "wan2.7-videoedit"
+    };
+    return models[input.mode];
+  }
+
   const models = {
     "text-to-video": process.env.HAPPYHORSE_T2V_MODEL || "happyhorse-1.0-t2v",
     "image-to-video": process.env.HAPPYHORSE_I2V_MODEL || "happyhorse-1.0-i2v",
     "reference-to-video": process.env.HAPPYHORSE_R2V_MODEL || "happyhorse-1.0-r2v",
-    "first-last-frame": process.env.WAN_I2V_MODEL || "wan2.7-i2v",
     "video-edit":
       process.env.HAPPYHORSE_VIDEO_EDIT_MODEL || "happyhorse-1.0-video-edit"
   };
-  return models[mode];
+  return models[input.mode as keyof typeof models];
 }
 
 function providerStatus(status: unknown) {
@@ -72,6 +94,8 @@ export function buildBailianVideoPayload(
   input: CreateBailianVideoInput,
   assets: Asset[]
 ) {
+  validateBailianModelMode(input);
+  const modelFamily = bailianModelFamilyForInput(input);
   const { images, videos } = splitAssets(assets);
   const media: Array<{ type: string; url: string }> = [];
   const parameters: Record<string, unknown> = {
@@ -92,14 +116,32 @@ export function buildBailianVideoPayload(
   }
 
   if (input.mode === "reference-to-video") {
-    const references = images.slice(0, 9);
-    if (references.length === 0) {
-      throw new Error("参考图生视频需要至少 1 张图片素材");
+    const imageLimit = modelFamily === "wan" ? 5 : 9;
+    const referenceImages = images.slice(0, imageLimit);
+    const referenceVideos = modelFamily === "wan" ? videos.slice(0, imageLimit) : [];
+    const referenceCount = referenceImages.length + referenceVideos.length;
+    const inputReferenceCount =
+      modelFamily === "wan" ? images.length + videos.length : images.length;
+    if (referenceCount === 0) {
+      throw new Error(
+        modelFamily === "wan"
+          ? "Wan 参考生视频需要至少 1 个图片或视频素材"
+          : "参考图生视频需要至少 1 张图片素材"
+      );
     }
-    if (images.length > 9) {
-      throw new Error("HappyHorse 参考图生视频最多支持 9 张参考图");
+    if (referenceCount > imageLimit || inputReferenceCount > imageLimit) {
+      throw new Error(
+        modelFamily === "wan"
+          ? "Wan 参考生视频最多支持 5 个参考图片或视频素材"
+          : "HappyHorse 参考图生视频最多支持 9 张参考图"
+      );
     }
-    references.forEach((asset) => media.push({ type: "reference_image", url: asset.publicUrl }));
+    referenceImages.forEach((asset) =>
+      media.push({ type: "reference_image", url: asset.publicUrl })
+    );
+    referenceVideos.forEach((asset) =>
+      media.push({ type: "reference_video", url: asset.publicUrl })
+    );
     parameters.ratio = normalizeRatio(input.ratio);
     parameters.duration = Math.min(input.duration, 10);
   }
@@ -115,14 +157,22 @@ export function buildBailianVideoPayload(
   if (input.mode === "video-edit") {
     const sourceVideo = requireAsset(videos, "参考视频生成需要至少 1 个视频素材");
     media.push({ type: "video", url: sourceVideo.publicUrl });
-    images.slice(0, 5).forEach((asset) => {
+    const referenceLimit = modelFamily === "wan" ? 3 : 5;
+    if (images.length > referenceLimit) {
+      throw new Error(
+        modelFamily === "wan"
+          ? "Wan 视频编辑最多支持 3 张参考图"
+          : "HappyHorse 视频编辑最多支持 5 张参考图"
+      );
+    }
+    images.slice(0, referenceLimit).forEach((asset) => {
       media.push({ type: "reference_image", url: asset.publicUrl });
     });
     parameters.audio_setting = input.generateAudio ? "auto" : "origin";
   }
 
   return {
-    model: modelForMode(input.mode),
+    model: modelForInput(input),
     input: {
       prompt: input.prompt,
       ...(media.length > 0 ? { media } : {})

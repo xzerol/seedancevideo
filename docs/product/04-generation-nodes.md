@@ -43,19 +43,28 @@
 
 ## 百炼视频节点
 
+模型：
+
+- HappyHorse：支持文生视频、首帧图生视频、参考图生视频和参考视频编辑。
+- Wan 2.7：支持文生视频、首帧图生视频、首尾帧、参考生视频和视频编辑。
+
 模式：
 
 - 文生视频：HappyHorse `happyhorse-1.0-t2v`。
 - 首帧图生视频：HappyHorse `happyhorse-1.0-i2v`，需要且只能使用 1 张首帧图片。
 - 参考图生视频：HappyHorse `happyhorse-1.0-r2v`，需要 1-9 张参考图。
-- 首尾帧：Wan `wan2.7-i2v`，需要且只能使用 2 张图片，分别作为首帧和尾帧。
+- 首尾帧：Wan `wan2.7-i2v-2026-04-25`，需要且只能使用 2 张图片，分别作为首帧和尾帧。
 - 参考视频编辑：HappyHorse `happyhorse-1.0-video-edit`，需要 1 个视频素材，可选 0-5 张参考图。
+- Wan 文生视频：`wan2.7-t2v-2026-04-25`。
+- Wan 首帧/首尾帧图生视频：`wan2.7-i2v-2026-04-25`。
+- Wan 参考生视频：`wan2.7-r2v`，支持图片或视频参考，最多 5 个参考素材。
+- Wan 视频编辑：`wan2.7-videoedit`，需要 1 个视频素材，可选 0-3 张参考图。
 
 能力确认：
 
 - HappyHorse `happyhorse-1.0-i2v` 官方接口是首帧图生视频，`media` 中 `first_frame` 要求 exactly one，不是首尾帧接口。
 - HappyHorse `happyhorse-1.0-video-edit` 支持输入 1 个 `video` 和 0-5 个 `reference_image` 做视频编辑/参考视频生成。
-- 首尾帧能力使用 Wan 首尾帧 API 映射，当前默认模型为 `wan2.7-i2v`，要求 2 张图片。
+- 首尾帧能力使用 Wan 2.7 图生视频 API 映射，当前默认模型为 `wan2.7-i2v-2026-04-25`，要求 2 张图片。
 
 结果：
 

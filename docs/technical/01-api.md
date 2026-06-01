@@ -141,6 +141,35 @@
 
 轮询视频生成任务状态。
 
+`POST /api/bailian-video-generations`
+
+调用阿里百炼视频生成。
+
+主要字段：
+
+- `projectId`
+- `nodeId`
+- `prompt`
+- `modelFamily`：`happyhorse` 或 `wan`。未传时兼容旧数据：首尾帧默认 Wan，其它模式默认 HappyHorse。
+- `assetIds`
+- `mode`
+- `ratio`
+- `resolution`
+- `duration`
+- `count`
+- `generateAudio`
+- `watermark`
+
+模型与模式：
+
+- HappyHorse 支持 `text-to-video`、`image-to-video`、`reference-to-video`、`video-edit`。
+- Wan 2.7 支持 `text-to-video`、`image-to-video`、`first-last-frame`、`reference-to-video`、`video-edit`。
+- Wan 参考生视频支持图片或视频参考，总数最多 5 个；Wan 视频编辑支持 1 个视频和 0-3 张参考图。
+
+`GET /api/bailian-video-generations/:batchId`
+
+轮询百炼视频生成任务状态。
+
 ## 本地视频文件
 
 `GET /api/local-files/videos/:filePath`

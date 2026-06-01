@@ -59,13 +59,126 @@ describe("buildBailianVideoPayload", () => {
       },
       [imageAsset, { ...imageAsset, id: "image_2", publicUrl: "https://cdn.example.com/b.png" }]
     );
-    expect(payload.model).toBe("wan2.7-i2v");
+    expect(payload.model).toBe("wan2.7-i2v-2026-04-25");
     expect(payload.input).toMatchObject({
       media: [
         { type: "first_frame", url: "https://cdn.example.com/a.png" },
         { type: "last_frame", url: "https://cdn.example.com/b.png" }
       ]
     });
+  });
+
+  it("builds first-last-frame payload with explicit Wan selection", () => {
+    const payload = buildBailianVideoPayload(
+      {
+        prompt: "镜头推进",
+        modelFamily: "wan",
+        mode: "first-last-frame",
+        ratio: "智能",
+        resolution: "1080p",
+        duration: 6,
+        count: 1,
+        generateAudio: true,
+        watermark: false,
+        assetIds: ["image_1", "image_2"]
+      },
+      [imageAsset, { ...imageAsset, id: "image_2", publicUrl: "https://cdn.example.com/b.png" }]
+    );
+
+    expect(payload.model).toBe("wan2.7-i2v-2026-04-25");
+  });
+
+  it("builds Wan text-to-video payload", () => {
+    const payload = buildBailianVideoPayload(
+      {
+        prompt: "一只小马奔跑",
+        modelFamily: "wan",
+        mode: "text-to-video",
+        ratio: "16:9",
+        resolution: "720p",
+        duration: 5,
+        count: 1,
+        generateAudio: true,
+        watermark: false,
+        assetIds: []
+      },
+      []
+    );
+
+    expect(payload.model).toBe("wan2.7-t2v-2026-04-25");
+    expect(payload.parameters).toMatchObject({ ratio: "16:9", duration: 5 });
+  });
+
+  it("builds Wan reference payload with image and video references", () => {
+    const payload = buildBailianVideoPayload(
+      {
+        prompt: "参考角色和视频动作生成",
+        modelFamily: "wan",
+        mode: "reference-to-video",
+        ratio: "16:9",
+        resolution: "720p",
+        duration: 10,
+        count: 1,
+        generateAudio: true,
+        watermark: false,
+        assetIds: ["image_1", "video_1"]
+      },
+      [imageAsset, videoAsset]
+    );
+
+    expect(payload.model).toBe("wan2.7-r2v");
+    expect(payload.input).toMatchObject({
+      media: [
+        { type: "reference_image", url: "https://cdn.example.com/a.png" },
+        { type: "reference_video", url: "https://cdn.example.com/a.mp4" }
+      ]
+    });
+  });
+
+  it("builds Wan video edit payload", () => {
+    const payload = buildBailianVideoPayload(
+      {
+        prompt: "保留动作，改成水墨风",
+        modelFamily: "wan",
+        mode: "video-edit",
+        ratio: "智能",
+        resolution: "720p",
+        duration: 5,
+        count: 1,
+        generateAudio: false,
+        watermark: false,
+        assetIds: ["video_1", "image_1"]
+      },
+      [videoAsset, imageAsset]
+    );
+
+    expect(payload.model).toBe("wan2.7-videoedit");
+    expect(payload.input).toMatchObject({
+      media: [
+        { type: "video", url: "https://cdn.example.com/a.mp4" },
+        { type: "reference_image", url: "https://cdn.example.com/a.png" }
+      ]
+    });
+  });
+
+  it("rejects HappyHorse for first-last-frame mode", () => {
+    expect(() =>
+      buildBailianVideoPayload(
+        {
+          prompt: "镜头推进",
+          modelFamily: "happyhorse",
+          mode: "first-last-frame",
+          ratio: "智能",
+          resolution: "1080p",
+          duration: 6,
+          count: 1,
+          generateAudio: true,
+          watermark: false,
+          assetIds: ["image_1", "image_2"]
+        },
+        [imageAsset, { ...imageAsset, id: "image_2", publicUrl: "https://cdn.example.com/b.png" }]
+      )
+    ).toThrow("HappyHorse 不支持首尾帧模式，请选择 Wan");
   });
 
   it("rejects first-last-frame without exactly two images", () => {

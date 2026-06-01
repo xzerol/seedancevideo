@@ -52,10 +52,13 @@ export const bailianVideoModeSchema = z.enum([
   "video-edit"
 ]);
 
+export const bailianModelFamilySchema = z.enum(["happyhorse", "wan"]);
+
 export const createBailianVideoSchema = z.object({
   projectId: z.string().optional(),
   nodeId: z.string().optional(),
   prompt: z.string().trim().min(1, "请先输入百炼视频文案").max(2500),
+  modelFamily: bailianModelFamilySchema.optional(),
   mode: bailianVideoModeSchema,
   ratio: ratioSchema.default("16:9"),
   resolution: z.enum(["720p", "1080p"]).default("720p"),

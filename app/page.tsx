@@ -133,6 +133,7 @@ type WorkflowNodeData = {
   tasks?: TaskLike[];
   statusMessage?: string;
   resultNodeId?: string;
+  modelFamily?: "happyhorse" | "wan";
   mode?: string;
   ratio?: string;
   resolution?: string;
@@ -145,6 +146,19 @@ type WorkflowNodeData = {
 };
 
 const ratios = ["智能", "16:9", "9:16", "1:1", "4:3", "3:4"];
+const happyhorseModes = [
+  { value: "text-to-video", label: "文生视频" },
+  { value: "image-to-video", label: "首帧图生视频" },
+  { value: "reference-to-video", label: "参考图生视频" },
+  { value: "video-edit", label: "参考视频编辑" }
+];
+const wanModes = [
+  { value: "text-to-video", label: "文生视频" },
+  { value: "image-to-video", label: "首帧图生视频" },
+  { value: "first-last-frame", label: "首尾帧" },
+  { value: "reference-to-video", label: "参考生视频" },
+  { value: "video-edit", label: "视频编辑" }
+];
 const nodeTypes = {
   asset: memo(ResourceNode),
   person: memo(ResourceNode),
@@ -167,6 +181,18 @@ function labelForType(type?: string) {
   if (type === "result-video") return "视频结果";
   if (type === "result-image") return "图片结果";
   return "素材";
+}
+
+function bailianModelFamily(data: WorkflowNodeData & Record<string, any>) {
+  return data.modelFamily || (data.mode === "first-last-frame" ? "wan" : "happyhorse");
+}
+
+function bailianMode(data: WorkflowNodeData & Record<string, any>) {
+  const modelFamily = bailianModelFamily(data);
+  if (modelFamily === "happyhorse" && data.mode === "first-last-frame") {
+    return "text-to-video";
+  }
+  return data.mode || "text-to-video";
 }
 
 function ResourcePreview({
@@ -664,6 +690,9 @@ function SeedanceNode(props: NodeProps<Node<WorkflowNodeData>>) {
 
 function BailianVideoNode(props: NodeProps<Node<WorkflowNodeData>>) {
   const data = props.data as WorkflowNodeData & Record<string, any>;
+  const modelFamily = bailianModelFamily(data);
+  const modeOptions = modelFamily === "wan" ? wanModes : happyhorseModes;
+  const currentMode = bailianMode(data);
   return (
     <GeneratorShell data={data} selected={props.selected} icon={<Video size={16} />}>
       <PromptEditor
@@ -673,14 +702,30 @@ function BailianVideoNode(props: NodeProps<Node<WorkflowNodeData>>) {
       />
       <div className="node-controls nodrag">
         <select
-          value={data.mode || "text-to-video"}
+          value={modelFamily}
+          onChange={(event) => {
+            const nextModelFamily = event.target.value;
+            data.onDataChange?.(props.id, {
+              modelFamily: nextModelFamily,
+              mode:
+                nextModelFamily === "happyhorse" && currentMode === "first-last-frame"
+                    ? "text-to-video"
+                    : currentMode
+            });
+          }}
+        >
+          <option value="happyhorse">HappyHorse</option>
+          <option value="wan">Wan</option>
+        </select>
+        <select
+          value={currentMode}
           onChange={(event) => data.onDataChange?.(props.id, { mode: event.target.value })}
         >
-          <option value="text-to-video">文生视频</option>
-          <option value="image-to-video">首帧图生视频</option>
-          <option value="reference-to-video">参考图生视频</option>
-          <option value="first-last-frame">首尾帧（Wan）</option>
-          <option value="video-edit">参考视频编辑</option>
+          {modeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <select
           value={data.ratio || "16:9"}
@@ -1022,10 +1067,12 @@ function WorkflowCanvas() {
       generateAudio,
       size,
       optimizePrompt,
-      watermark
+      watermark,
+      modelFamily
     } = node.data;
     return {
       mode,
+      modelFamily,
       ratio,
       resolution,
       duration,
@@ -1538,6 +1585,7 @@ function WorkflowCanvas() {
                 : {
                   title: "百炼视频",
                   prompt: "",
+                  modelFamily: "happyhorse",
                   mode: "text-to-video",
                   ratio: "16:9",
                   resolution: "720p",
@@ -1810,7 +1858,8 @@ function WorkflowCanvas() {
         projectId: projectIdRef.current,
         nodeId,
         prompt,
-        mode: node.data.mode || "text-to-video",
+        modelFamily: bailianModelFamily(node.data),
+        mode: bailianMode(node.data),
         ratio: node.data.ratio || "16:9",
         resolution: node.data.resolution || "720p",
         duration: node.data.duration || 5,
