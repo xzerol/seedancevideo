@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseAssetMentions } from "@/lib/prompt";
+import { resolveAssetsForGeneration } from "@/lib/asset-resolution";
 import {
   bailianModelFamilyForInput,
   createBailianVideoTask,
@@ -14,15 +14,6 @@ import {
 
 export const runtime = "nodejs";
 
-async function resolveAssets(assetIds: string[], prompt: string) {
-  const mentionedNames = parseAssetMentions(prompt);
-  const conditions = [];
-  if (assetIds.length > 0) conditions.push({ id: { in: assetIds } });
-  if (mentionedNames.length > 0) conditions.push({ name: { in: mentionedNames } });
-  if (conditions.length === 0) return [];
-  return prisma.asset.findMany({ where: { OR: conditions }, orderBy: { createdAt: "asc" } });
-}
-
 function summarizeBatchStatus(statuses: string[]) {
   if (statuses.some((status) => status === "queued" || status === "running")) return "running";
   if (statuses.length > 0 && statuses.every((status) => status === "completed")) return "completed";
@@ -32,7 +23,7 @@ function summarizeBatchStatus(statuses: string[]) {
 
 function validateModeAssets(
   input: CreateBailianVideoInput,
-  assets: Awaited<ReturnType<typeof resolveAssets>>
+  assets: Awaited<ReturnType<typeof resolveAssetsForGeneration>>
 ) {
   const modelFamily = bailianModelFamilyForInput(input);
   const imageCount = assets.filter((asset) => asset.kind === "image").length;
@@ -63,7 +54,11 @@ export async function POST(request: NextRequest) {
   try {
     const input = createBailianVideoSchema.parse(await request.json());
     validateBailianModelMode(input);
-    const assets = await resolveAssets(input.assetIds, input.prompt);
+    const assets = await resolveAssetsForGeneration(
+      input.assetIds,
+      input.prompt,
+      input.projectId
+    );
     validateModeAssets(input, assets);
 
     const batch = await prisma.generationBatch.create({

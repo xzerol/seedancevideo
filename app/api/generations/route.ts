@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseAssetMentions } from "@/lib/prompt";
+import { resolveAssetsForGeneration } from "@/lib/asset-resolution";
 import { createSeedanceTask } from "@/lib/seedance";
 import { createGenerationSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
-
-async function resolveAssets(assetIds: string[], prompt: string) {
-  const mentionedNames = parseAssetMentions(prompt);
-  const conditions = [];
-  if (assetIds.length > 0) conditions.push({ id: { in: assetIds } });
-  if (mentionedNames.length > 0) conditions.push({ name: { in: mentionedNames } });
-  if (conditions.length === 0) return [];
-
-  const assets = await prisma.asset.findMany({
-    where: {
-      OR: conditions
-    },
-    orderBy: { createdAt: "asc" }
-  });
-
-  return assets;
-}
 
 function summarizeBatchStatus(statuses: string[]) {
   if (statuses.some((status) => status === "queued" || status === "running")) {
@@ -38,7 +21,11 @@ export async function POST(request: NextRequest) {
   try {
     const json = await request.json();
     const input = createGenerationSchema.parse(json);
-    const assets = await resolveAssets(input.assetIds, input.prompt);
+    const assets = await resolveAssetsForGeneration(
+      input.assetIds,
+      input.prompt,
+      input.projectId
+    );
     if (
       input.mode === "reference_video" &&
       !assets.some((asset) => asset.kind === "video")

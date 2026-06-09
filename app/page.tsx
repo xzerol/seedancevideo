@@ -1262,18 +1262,95 @@ function WorkflowCanvas() {
     setRenameDraft("");
   }
 
-  function sourceAssetIdsForNode(nodeId: string) {
+  function resultAssetKind(data: WorkflowNodeData) {
+    return data.resultKind === "video" || data.resultUrl?.toLowerCase().includes(".mp4")
+      ? "video"
+      : "image";
+  }
+
+  async function ensureResultAsset(data: WorkflowNodeData) {
+    if (data.assetId) {
+      const existingAsset = assetMapRef.current.get(data.assetId);
+      if (existingAsset) return existingAsset;
+    }
+    if (!data.resultUrl) return null;
+
+    const kind = resultAssetKind(data);
+    const response = await fetch("/api/assets/from-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: data.resultUrl,
+        name: data.title || (kind === "video" ? "生成视频" : "生成图片"),
+        kind,
+        mimeType: kind === "video" ? "video/mp4" : "image/png",
+        libraryType: "asset",
+        projectId: projectIdRef.current
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "生成结果转素材失败");
+    }
+
+    const asset = payload.asset as Asset;
+    prependAssets([asset]);
+    assetMapRef.current.set(asset.id, asset);
+    return asset;
+  }
+
+  async function ensureSourceAssetIdsForNode(nodeId: string) {
     const ids = new Set<string>();
+    const sourceAssetUpdates = new Map<string, Asset>();
     const byNodeId = new Map(nodesRef.current.map((node) => [node.id, node]));
+    const target = byNodeId.get(nodeId);
+
+    for (const id of target?.data.inputAssetIds || []) ids.add(id);
+
     for (const edge of edgesRef.current) {
       if (edge.target !== nodeId) continue;
       const source = byNodeId.get(edge.source);
-      const assetId = source?.data.assetId;
-      if (assetId) ids.add(assetId);
+      if (!source) continue;
+
+      if (source.data.assetId) {
+        ids.add(source.data.assetId);
+        continue;
+      }
+
+      if (source.data.resultUrl) {
+        const asset = await ensureResultAsset(source.data);
+        if (!asset) continue;
+        ids.add(asset.id);
+        sourceAssetUpdates.set(source.id, asset);
+      }
     }
-    const directIds =
-      nodesRef.current.find((node) => node.id === nodeId)?.data.inputAssetIds || [];
-    for (const id of directIds) ids.add(id);
+
+    if (sourceAssetUpdates.size > 0) {
+      setNodes((current) =>
+        current.map((node) => {
+          const sourceAsset = sourceAssetUpdates.get(node.id);
+          if (sourceAsset) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                assetId: sourceAsset.id,
+                asset: sourceAsset
+              }
+            };
+          }
+          if (node.id !== nodeId) return node;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              inputAssetIds: [...new Set([...(node.data.inputAssetIds || []), ...ids])]
+            }
+          };
+        })
+      );
+    }
+
     return [...ids];
   }
 
@@ -1627,7 +1704,17 @@ function WorkflowCanvas() {
   async function runSeedream(nodeId: string) {
     const node = nodesRef.current.find((item) => item.id === nodeId);
     if (!node) return;
-    const sourceIds = sourceAssetIdsForNode(nodeId);
+    let sourceIds: string[];
+    try {
+      sourceIds = await ensureSourceAssetIdsForNode(nodeId);
+    } catch (assetError) {
+      updateNodeData(nodeId, {
+        status: "failed",
+        errorMessage:
+          assetError instanceof Error ? assetError.message : "引用素材准备失败"
+      });
+      return;
+    }
     const sourceAssets = sourceIds
       .map((id) => assetMapRef.current.get(id))
       .filter(Boolean) as Asset[];
@@ -1800,7 +1887,17 @@ function WorkflowCanvas() {
   async function runSeedance(nodeId: string) {
     const node = nodesRef.current.find((item) => item.id === nodeId);
     if (!node) return;
-    const sourceIds = sourceAssetIdsForNode(nodeId);
+    let sourceIds: string[];
+    try {
+      sourceIds = await ensureSourceAssetIdsForNode(nodeId);
+    } catch (assetError) {
+      updateNodeData(nodeId, {
+        status: "failed",
+        errorMessage:
+          assetError instanceof Error ? assetError.message : "引用素材准备失败"
+      });
+      return;
+    }
     const sourceAssets = sourceIds
       .map((id) => assetMapRef.current.get(id))
       .filter(Boolean) as Asset[];
@@ -1839,7 +1936,17 @@ function WorkflowCanvas() {
   async function runBailian(nodeId: string) {
     const node = nodesRef.current.find((item) => item.id === nodeId);
     if (!node) return;
-    const sourceIds = sourceAssetIdsForNode(nodeId);
+    let sourceIds: string[];
+    try {
+      sourceIds = await ensureSourceAssetIdsForNode(nodeId);
+    } catch (assetError) {
+      updateNodeData(nodeId, {
+        status: "failed",
+        errorMessage:
+          assetError instanceof Error ? assetError.message : "引用素材准备失败"
+      });
+      return;
+    }
     const sourceAssets = sourceIds
       .map((id) => assetMapRef.current.get(id))
       .filter(Boolean) as Asset[];
@@ -1884,26 +1991,12 @@ function WorkflowCanvas() {
       if (existingAsset) prependAssets([existingAsset]);
       return;
     }
-    const response = await fetch("/api/assets/from-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: data.resultUrl,
-        name: data.title || "生成素材",
-        kind:
-          data.resultKind === "video" || data.resultUrl.includes(".mp4")
-            ? "video"
-            : "image",
-        mimeType:
-          data.resultKind === "video" || data.resultUrl.includes(".mp4")
-            ? "video/mp4"
-            : "image/png",
-        libraryType: "asset",
-        projectId: projectIdRef.current
-      })
-    });
-    const payload = await response.json();
-    if (response.ok) prependAssets([payload.asset]);
+    try {
+      const asset = await ensureResultAsset(data);
+      if (asset && data.nodeId) updateNodeData(data.nodeId, { assetId: asset.id, asset });
+    } catch (assetError) {
+      setError(assetError instanceof Error ? assetError.message : "收藏素材失败");
+    }
   }
 
   if (projectView === "home") {
