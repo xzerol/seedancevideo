@@ -57,7 +57,7 @@ export function modelForInput(input: CreateBailianVideoInput) {
 
   const models = {
     "text-to-video": process.env.HAPPYHORSE_T2V_MODEL || "happyhorse-1.0-t2v",
-    "image-to-video": process.env.HAPPYHORSE_I2V_MODEL || "happyhorse-1.0-i2v",
+    "image-to-video": process.env.HAPPYHORSE_I2V_MODEL || "happyhorse-1.1-i2v",
     "reference-to-video": process.env.HAPPYHORSE_R2V_MODEL || "happyhorse-1.0-r2v",
     "video-edit":
       process.env.HAPPYHORSE_VIDEO_EDIT_MODEL || "happyhorse-1.0-video-edit"

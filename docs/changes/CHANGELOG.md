@@ -1,5 +1,9 @@
 # 修改记录
 
+## 2026-07-06
+
+- 见：[2026-07-06-happyhorse-i2v-upgrade.md](2026-07-06-happyhorse-i2v-upgrade.md)
+
 ## 2026-05-22
 
 - 见：[2026-05-22-project-home-and-pagination.md](2026-05-22-project-home-and-pagination.md)

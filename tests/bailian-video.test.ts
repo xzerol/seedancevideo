@@ -44,6 +44,33 @@ describe("buildBailianVideoPayload", () => {
     expect(payload.parameters).toMatchObject({ ratio: "16:9", resolution: "720P" });
   });
 
+  it("builds HappyHorse 1.1 image-to-video payload", () => {
+    const payload = buildBailianVideoPayload(
+      {
+        prompt: "首帧动起来",
+        mode: "image-to-video",
+        ratio: "智能",
+        resolution: "1080p",
+        duration: 5,
+        count: 1,
+        generateAudio: true,
+        watermark: false,
+        assetIds: ["image_1"]
+      },
+      [imageAsset]
+    );
+
+    expect(payload.model).toBe("happyhorse-1.1-i2v");
+    expect(payload.input).toMatchObject({
+      media: [{ type: "first_frame", url: "https://cdn.example.com/a.png" }]
+    });
+    expect(payload.parameters).toMatchObject({
+      duration: 5,
+      resolution: "1080P",
+      watermark: false
+    });
+  });
+
   it("builds first-last-frame payload with Wan", () => {
     const payload = buildBailianVideoPayload(
       {
